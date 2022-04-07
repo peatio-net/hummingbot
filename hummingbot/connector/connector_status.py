@@ -36,6 +36,7 @@ connector_status = {
     'ndax_testnet': 'yellow',
     'okex': 'yellow',
     'perpetual_finance': 'yellow',
+    'ppeatio': 'yellow',
     'probit': 'yellow',
     'probit_kr': 'yellow',
     'terra': 'yellow',
