@@ -18,5 +18,5 @@ This Peatio Connector was largely based on the Altmarkets connector, as the Altm
 The Connector API has been tested with Peatio version 3.1, although it should work with any verstion of Peatio greater than 2.3, unless the API routes have been changed.
 
 The biggest change was to parameterise the base URL to suit different echanges. Eg. this was originally hard-codes as "www.altmarkets.io". Now the base URL must be enterted as a variable in the config.pt file Eg "www.coinharbour.com.au".
-The domain name must be added in the config.py file which will also be mentioned on the user interface after connecting to the peatio server. 
+The domain name must be added in the config.py (exchange_domain) in the peatio folder file which will also be mentioned on the user interface after connecting to the peatio server. 
 
