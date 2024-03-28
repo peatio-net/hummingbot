@@ -95,6 +95,10 @@ hitbtc_secret_key = os.getenv("HITBTC_SECRET_KEY")
 gate_io_api_key = os.getenv("GATE_IO_API_KEY")
 gate_io_secret_key = os.getenv("GATE_IO_SECRET_KEY")
 
+# peatio Test
+peatio_api_key = os.getenv("PEATIO_API_KEY")
+peatio_secret_key = os.getenv("PEATIO_SECRET_KEY")
+
 # Wallet Tests
 test_erc20_token_address = os.getenv("TEST_ERC20_TOKEN_ADDRESS")
 web3_test_private_key_a = os.getenv("TEST_WALLET_PRIVATE_KEY_A")
