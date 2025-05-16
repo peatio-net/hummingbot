@@ -36,8 +36,9 @@ class TestWalletTrackerDataFeed(IsolatedAsyncioWrapperTestCase, LoggerMixinForTe
         self.assertTrue(self.is_logged(log_level=LogLevel.WARNING,
                                        message="Gateway is not online. Please check your gateway connection.", ))
 
+    @patch("hummingbot.data_feed.wallet_tracker_data_feed.WalletTrackerDataFeed._async_sleep", new_callable=AsyncMock)
     @patch("hummingbot.data_feed.wallet_tracker_data_feed.WalletTrackerDataFeed._fetch_data", new_callable=AsyncMock)
-    async def test_fetch_data_loop_exception(self, fetch_data_mock: AsyncMock):
+    async def test_fetch_data_loop_exception(self, fetch_data_mock: AsyncMock, _):
         fetch_data_mock.side_effect = [Exception("test exception"), asyncio.CancelledError()]
         try:
             await self.data_feed._fetch_data_loop()
@@ -61,3 +62,23 @@ class TestWalletTrackerDataFeed(IsolatedAsyncioWrapperTestCase, LoggerMixinForTe
         self.assertEqual(Decimal("2"), self.data_feed.wallet_balances["wallet"]["token2"])
         self.assertEqual(Decimal("1"), self.data_feed.wallet_balances_df.loc["wallet", "token"])
         self.assertEqual(Decimal("2"), self.data_feed.wallet_balances_df.loc["wallet", "token2"])
+
+    @patch("hummingbot.data_feed.wallet_tracker_data_feed.GatewayHttpClient.get_instance")
+    def test_gateway_client_property(self, get_instance_mock):
+        # Reset the gateway client to None
+        self.data_feed._gateway_client = None
+
+        # Create a mock instance
+        mock_client = AsyncMock()
+        get_instance_mock.return_value = mock_client
+
+        # Access the property
+        client = self.data_feed.gateway_client
+
+        # Verify the client was initialized correctly
+        self.assertEqual(client, mock_client)
+        get_instance_mock.assert_called_once()
+
+        # Verify subsequent calls return the same instance
+        self.assertEqual(self.data_feed.gateway_client, mock_client)
+        get_instance_mock.assert_called_once()  # Should not be called again

@@ -1,7 +1,5 @@
-import asyncio
-import unittest
-from typing import Awaitable
-from unittest.mock import AsyncMock
+from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
+from unittest.mock import AsyncMock, patch
 
 from xrpl.asyncio.clients import XRPLRequestFailureException
 from xrpl.asyncio.transaction import XRPLReliableSubmissionException
@@ -17,22 +15,7 @@ from hummingbot.connector.exchange.xrpl.xrpl_utils import (
 )
 
 
-class TestXRPLUtils(unittest.TestCase):
-
-    @classmethod
-    def setUpClass(cls) -> None:
-        super().setUpClass()
-        cls.ev_loop = asyncio.get_event_loop()
-
-    def setUp(self) -> None:
-        super().setUp()
-
-    def tearDown(self) -> None:
-        super().tearDown()
-
-    def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 5):
-        ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
-        return ret
+class TestXRPLUtils(IsolatedAsyncioWrapperTestCase):
 
     def _event_message_limit_order_partially_filled(self):
         resp = {
@@ -242,16 +225,6 @@ class TestXRPLUtils(unittest.TestCase):
         self.assertEqual(result[0].get("offer_changes")[0].get("status"), "partially-filled")
         self.assertEqual(result[0].get("offer_changes")[0].get("maker_exchange_rate"), "4.438561637330454036765786876")
 
-    def test_validate_xrpl_secret_key_valid(self):
-        valid_key = "sEdTvpec3RNNWwphd1WKZqt5Vs6GEFu"  # noqa: mock
-        self.assertEqual(XRPLConfigMap.validate_xrpl_secret_key(valid_key), valid_key)
-
-    def test_validate_xrpl_secret_key_invalid(self):
-        invalid_key = "xINVALIDKEY"
-        with self.assertRaises(ValueError) as context:
-            XRPLConfigMap.validate_xrpl_secret_key(invalid_key)
-        self.assertIn("Invalid XRPL wallet secret key", str(context.exception))
-
     def test_validate_wss_node_url_valid(self):
         valid_url = "wss://s1.ripple.com/"
         self.assertEqual(XRPLConfigMap.validate_wss_node_url(valid_url), valid_url)
@@ -272,7 +245,7 @@ class TestXRPLUtils(unittest.TestCase):
             XRPLConfigMap.validate_wss_second_node_url(invalid_url)
         self.assertIn("Invalid node url", str(context.exception))
 
-    def test_auto_fill(self):
+    async def test_auto_fill(self):
         client = AsyncMock()
 
         request = OfferCancel(
@@ -295,7 +268,7 @@ class TestXRPLUtils(unittest.TestCase):
             },
         )
 
-        filled_request = self.async_run_with_timeout(autofill(request, client))
+        filled_request = await autofill(request, client)
 
         self.assertIsInstance(filled_request, OfferCancel)
         self.assertEqual(filled_request.fee, str(10 * CONSTANTS.FEE_MULTIPLIER))
@@ -305,9 +278,10 @@ class TestXRPLUtils(unittest.TestCase):
         client._request_impl.side_effect = Exception("Error")
 
         with self.assertRaises(Exception):
-            self.async_run_with_timeout(autofill(request, client))
+            await autofill(request, client)
 
-    def test_wait_for_final_transaction_outcome(self):
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_utils._sleep")
+    async def test_wait_for_final_transaction_outcome(self, _):
         client = AsyncMock()
         client.network_id = None
         client.build_version = None
@@ -323,18 +297,14 @@ class TestXRPLUtils(unittest.TestCase):
         )
 
         with self.assertRaises(XRPLReliableSubmissionException):
-            self.async_run_with_timeout(
-                _wait_for_final_transaction_outcome("transaction_hash", client, "something", 12345)
-            )
+            await _wait_for_final_transaction_outcome("transaction_hash", client, "something", 12345)
 
         with self.assertRaises(XRPLRequestFailureException):
             client._request_impl.return_value = Response(
                 status=ResponseStatus.ERROR,
                 result={"error": "something happened"},
             )
-            self.async_run_with_timeout(
-                _wait_for_final_transaction_outcome("transaction_hash", client, "something", 12345)
-            )
+            await _wait_for_final_transaction_outcome("transaction_hash", client, "something", 12345)
 
         with self.assertRaises(XRPLReliableSubmissionException):
             client._request_impl.return_value = Response(
@@ -347,9 +317,7 @@ class TestXRPLUtils(unittest.TestCase):
                     },
                 },
             )
-            self.async_run_with_timeout(
-                _wait_for_final_transaction_outcome("transaction_hash", client, "something", 12345)
-            )
+            await _wait_for_final_transaction_outcome("transaction_hash", client, "something", 12345)
 
         client._request_impl.return_value = Response(
             status=ResponseStatus.SUCCESS,
@@ -362,9 +330,7 @@ class TestXRPLUtils(unittest.TestCase):
             },
         )
 
-        response = self.async_run_with_timeout(
-            _wait_for_final_transaction_outcome("transaction_hash", client, "something", 1234500000)
-        )
+        response = await _wait_for_final_transaction_outcome("transaction_hash", client, "something", 1234500000)
 
         self.assertEqual(response.result["ledger_index"], 99999221)
         self.assertEqual(response.result["validated"], True)

@@ -93,6 +93,9 @@ gate_io_secret_key = os.getenv("GATE_IO_SECRET_KEY")
 # peatio Test
 peatio_api_key = os.getenv("PEATIO_API_KEY")
 peatio_secret_key = os.getenv("PEATIO_SECRET_KEY")
+# Mexc Tests
+mexc_api_key = os.getenv("MEXC_API_KEY")
+mexc_api_secret = os.getenv("MEXC_API_SECRET")
 
 # Wallet Tests
 test_erc20_token_address = os.getenv("TEST_ERC20_TOKEN_ADDRESS")

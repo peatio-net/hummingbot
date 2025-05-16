@@ -92,12 +92,16 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> [ThrowingA
                                 dest="precision", help="Level of precions for values displayed")
     history_parser.set_defaults(func=hummingbot.history)
 
-    gateway_parser = subparsers.add_parser("gateway", help="Helper comands for Gateway server.")
+    gateway_parser = subparsers.add_parser("gateway", help="Helper commands for Gateway server.")
     gateway_subparsers = gateway_parser.add_subparsers()
 
     gateway_balance_parser = gateway_subparsers.add_parser("balance", help="Display your asset balances and allowances across all connected gateway connectors")
     gateway_balance_parser.add_argument("connector_chain_network", nargs="?", default=None, help="Name of connector_chain_network balance and allowance you want to fetch")
     gateway_balance_parser.set_defaults(func=hummingbot.gateway_balance)
+
+    gateway_allowance_parser = gateway_subparsers.add_parser("allowance", help="Check token allowances for Ethereum-based connectors")
+    gateway_allowance_parser.add_argument("connector_chain_network", nargs="?", default=None, help="Name of Ethereum-based connector you want to check allowances for")
+    gateway_allowance_parser.set_defaults(func=hummingbot.gateway_allowance)
 
     gateway_config_parser = gateway_subparsers.add_parser("config", help="View or update gateway configuration")
     gateway_config_parser.add_argument("key", nargs="?", default=None, help="Name of the parameter you want to view/change")
@@ -179,7 +183,7 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> [ThrowingA
         shortcut_parser = subparsers.add_parser(command, help=help_str)
         args = shortcut.arguments
         for i in range(len(args)):
-            shortcut_parser.add_argument(f'${i+1}', help=args[i])
+            shortcut_parser.add_argument(f'${i + 1}', help=args[i])
 
     rate_parser = subparsers.add_parser('rate', help="Show rate of a given trading pair")
     rate_parser.add_argument("-p", "--pair", default=None,

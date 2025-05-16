@@ -18,8 +18,6 @@ from hummingbot.client.config.client_config_map import (
     DBSqliteMode,
     KillSwitchDisabledMode,
     KillSwitchEnabledMode,
-    TelegramDisabledMode,
-    TelegramEnabledMode,
 )
 from hummingbot.client.config.config_crypt import BaseSecretsManager, store_password_verification
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap
@@ -104,7 +102,6 @@ def migrate_global_config() -> List[str]:
                 _migrate_global_config_field(client_config_map, data, key)
         for key in data:
             logging.getLogger().warning(f"Global ConfigVar {key} was not migrated.")
-        errors.extend(client_config_map.validate_model())
         if len(errors) == 0:
             save_to_yml(CLIENT_CONFIG_PATH, client_config_map)
             global_config_path.unlink()
@@ -131,18 +128,6 @@ def _migrate_global_config_modes(client_config_map: ClientConfigAdapter, data: D
     _migrate_global_config_field(
         client_config_map.paper_trade, data, "paper_trade_account_balance"
     )
-
-    telegram_enabled = data.pop("telegram_enabled")
-    telegram_token = data.pop("telegram_token")
-    telegram_chat_id = data.pop("telegram_chat_id")
-    if telegram_enabled:
-        client_config_map.telegram_mode = TelegramEnabledMode(
-            telegram_token=telegram_token,
-            telegram_chat_id=telegram_chat_id,
-        )
-    else:
-        client_config_map.telegram_mode = TelegramDisabledMode()
-
     db_engine = data.pop("db_engine")
     db_host = data.pop("db_host")
     db_port = data.pop("db_port")
@@ -429,11 +414,6 @@ def _maybe_migrate_encrypted_confs(config_keys: BaseConnectorConfigMap) -> List[
     if found_one:
         if len(missing_fields) != 0:
             errors = [f"{config_keys.connector} - missing fields: {missing_fields}"]
-        if len(errors) == 0:
-            errors = cm.validate_model()
-        if errors:
-            errors = [f"{config_keys.connector} - {e}" for e in errors]
-            logging.getLogger().error(f"The migration of {config_keys.connector} failed with errors: {errors}")
         else:
             Security.update_secure_config(cm)
             logging.getLogger().info(f"Migrated secure keys for {config_keys.connector}")

@@ -1,9 +1,9 @@
 from decimal import Decimal
 from typing import Dict, List, Set, Union
 
-from pydantic import Field, validator
+import pandas_ta as ta  # noqa: F401
+from pydantic import Field, field_validator
 
-from hummingbot.client.config.config_data_types import ClientFieldData
 from hummingbot.core.data_type.common import OrderType, PositionMode, PriceType, TradeType
 from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
 from hummingbot.strategy_v2.controllers import ControllerBase, ControllerConfigBase
@@ -19,34 +19,33 @@ class QGAConfig(ControllerConfigBase):
     candles_config: List[CandlesConfig] = []
 
     # Portfolio allocation zones
-    long_only_threshold: Decimal = Field(default=Decimal("0.2"), client_data=ClientFieldData(is_updatable=True))
-    short_only_threshold: Decimal = Field(default=Decimal("0.2"), client_data=ClientFieldData(is_updatable=True))
-    hedge_ratio: Decimal = Field(default=Decimal("2"), client_data=ClientFieldData(is_updatable=True))
+    long_only_threshold: Decimal = Field(default=Decimal("0.2"), json_schema_extra={"is_updatable": True})
+    short_only_threshold: Decimal = Field(default=Decimal("0.2"), json_schema_extra={"is_updatable": True})
+    hedge_ratio: Decimal = Field(default=Decimal("2"), json_schema_extra={"is_updatable": True})
 
     # Grid allocation multipliers
-    base_grid_value_pct: Decimal = Field(default=Decimal("0.08"), client_data=ClientFieldData(is_updatable=True))
-    max_grid_value_pct: Decimal = Field(default=Decimal("0.15"), client_data=ClientFieldData(is_updatable=True))
+    base_grid_value_pct: Decimal = Field(default=Decimal("0.08"), json_schema_extra={"is_updatable": True})
+    max_grid_value_pct: Decimal = Field(default=Decimal("0.15"), json_schema_extra={"is_updatable": True})
 
     # Order frequency settings
-    safe_extra_spread: Decimal = Field(default=Decimal("0.0001"), client_data=ClientFieldData(is_updatable=True))
-    favorable_order_frequency: int = Field(default=2, client_data=ClientFieldData(is_updatable=True))
-    unfavorable_order_frequency: int = Field(default=5, client_data=ClientFieldData(is_updatable=True))
-    max_orders_per_batch: int = Field(default=1, client_data=ClientFieldData(is_updatable=True))
+    safe_extra_spread: Decimal = Field(default=Decimal("0.0001"), json_schema_extra={"is_updatable": True})
+    favorable_order_frequency: int = Field(default=2, json_schema_extra={"is_updatable": True})
+    unfavorable_order_frequency: int = Field(default=5, json_schema_extra={"is_updatable": True})
+    max_orders_per_batch: int = Field(default=1, json_schema_extra={"is_updatable": True})
 
     # Portfolio allocation
     portfolio_allocation: Dict[str, Decimal] = Field(
         default={
             "SOL": Decimal("0.50"),  # 50%
         },
-        client_data=ClientFieldData(is_updatable=True)
-    )
+        json_schema_extra={"is_updatable": True})
     # Grid parameters
-    grid_range: Decimal = Field(default=Decimal("0.002"), client_data=ClientFieldData(is_updatable=True))
-    tp_sl_ratio: Decimal = Field(default=Decimal("0.8"), client_data=ClientFieldData(is_updatable=True))
-    min_order_amount: Decimal = Field(default=Decimal("5"), client_data=ClientFieldData(is_updatable=True))
+    grid_range: Decimal = Field(default=Decimal("0.002"), json_schema_extra={"is_updatable": True})
+    tp_sl_ratio: Decimal = Field(default=Decimal("0.8"), json_schema_extra={"is_updatable": True})
+    min_order_amount: Decimal = Field(default=Decimal("5"), json_schema_extra={"is_updatable": True})
     # Risk parameters
-    max_deviation: Decimal = Field(default=Decimal("0.05"), client_data=ClientFieldData(is_updatable=True))
-    max_open_orders: int = Field(default=2, client_data=ClientFieldData(is_updatable=True))
+    max_deviation: Decimal = Field(default=Decimal("0.05"), json_schema_extra={"is_updatable": True})
+    max_open_orders: int = Field(default=2, json_schema_extra={"is_updatable": True})
     # Exchange settings
     connector_name: str = "binance"
     leverage: int = 1
@@ -56,21 +55,21 @@ class QGAConfig(ControllerConfigBase):
     # Grid price multipliers
     min_spread_between_orders: Decimal = Field(
         default=Decimal("0.0001"),  # 0.01% between orders
-        client_data=ClientFieldData(is_updatable=True)
-    )
+        json_schema_extra={"is_updatable": True})
     grid_tp_multiplier: Decimal = Field(
         default=Decimal("0.0001"),  # 0.2% take profit
-        client_data=ClientFieldData(is_updatable=True)
-    )
+        json_schema_extra={"is_updatable": True})
     # Grid safety parameters
     limit_price_spread: Decimal = Field(
         default=Decimal("0.001"),  # 0.1% spread for limit price
-        client_data=ClientFieldData(is_updatable=True)
-    )
+        json_schema_extra={"is_updatable": True})
     activation_bounds: Decimal = Field(
         default=Decimal("0.0002"),  # Activation bounds for orders
-        client_data=ClientFieldData(is_updatable=True)
-    )
+        json_schema_extra={"is_updatable": True})
+    bb_lenght: int = 100
+    bb_std_dev: float = 2.0
+    interval: str = "1s"
+    dynamic_grid_range: bool = Field(default=False, json_schema_extra={"is_updatable": True})
     show_terminated_details: bool = False
 
     @property
@@ -78,7 +77,8 @@ class QGAConfig(ControllerConfigBase):
         """Calculate the implicit quote asset (FDUSD) allocation"""
         return Decimal("1") - sum(self.portfolio_allocation.values())
 
-    @validator("portfolio_allocation")
+    @field_validator("portfolio_allocation")
+    @classmethod
     def validate_allocation(cls, v):
         total = sum(v.values())
         if total >= Decimal("1"):
@@ -97,7 +97,6 @@ class QGAConfig(ControllerConfigBase):
 
 class QuantumGridAllocator(ControllerBase):
     def __init__(self, config: QGAConfig, *args, **kwargs):
-        super().__init__(config, *args, **kwargs)
         self.config = config
         self.metrics = {}
         # Track unfavorable grid IDs
@@ -110,6 +109,13 @@ class QuantumGridAllocator(ControllerBase):
             }
             for asset in config.portfolio_allocation
         }
+        self.config.candles_config = [CandlesConfig(
+            connector=config.connector_name,
+            trading_pair=trading_pair + "-" + config.quote_asset,
+            interval=config.interval,
+            max_records=config.bb_lenght + 100
+        ) for trading_pair in config.portfolio_allocation.keys()]
+        super().__init__(config, *args, **kwargs)
         self.initialize_rate_sources()
 
     def initialize_rate_sources(self):
@@ -117,7 +123,23 @@ class QuantumGridAllocator(ControllerBase):
         self.market_data_provider.initialize_rate_sources([fee_pair])
 
     async def update_processed_data(self):
-        pass
+        # Get the bb width to use it as the range for the grid
+        for asset in self.config.portfolio_allocation:
+            trading_pair = f"{asset}-{self.config.quote_asset}"
+            candles = self.market_data_provider.get_candles_df(
+                connector_name=self.config.connector_name,
+                trading_pair=trading_pair,
+                interval=self.config.interval,
+                max_records=self.config.bb_lenght + 100
+            )
+            if len(candles) == 0:
+                bb_width = self.config.grid_range
+            else:
+                bb = ta.bbands(candles["close"], length=self.config.bb_lenght, std=self.config.bb_std_dev)
+                bb_width = bb[f"BBB_{self.config.bb_lenght}_{self.config.bb_std_dev}"].iloc[-1] / 100
+            self.processed_data[trading_pair] = {
+                "bb_width": bb_width
+            }
 
     def update_portfolio_metrics(self):
         """
@@ -284,14 +306,18 @@ class QuantumGridAllocator(ControllerBase):
                 f"Deviation: {deviation:+.1%}, "
                 f"Grid Value %: {grid_value_pct:.1%}"
             )
+            if self.config.dynamic_grid_range:
+                grid_range = Decimal(self.processed_data[trading_pair]["bb_width"])
+            else:
+                grid_range = self.config.grid_range
 
             # Determine which zone we're in by normalizing the deviation over the theoretical allocation
             if deviation < -self.config.long_only_threshold:
                 # Long-only zone - only create buy grids
                 if difference < Decimal("0"):  # Only if we need to buy
                     grid_value = min(abs(difference), theoretical * grid_value_pct)
-                    start_price = mid_price * (1 - self.config.grid_range * self.sl_multiplier())
-                    end_price = mid_price * (1 + self.config.grid_range * self.tp_multiplier())
+                    start_price = mid_price * (1 - grid_range * self.sl_multiplier())
+                    end_price = mid_price * (1 + grid_range * self.tp_multiplier())
                     grid_action = self.create_grid_executor(
                         trading_pair=trading_pair,
                         side=TradeType.BUY,
@@ -306,8 +332,8 @@ class QuantumGridAllocator(ControllerBase):
                 # Short-only zone - only create sell grids
                 if difference > Decimal("0"):  # Only if we need to sell
                     grid_value = min(abs(difference), theoretical * grid_value_pct)
-                    start_price = mid_price * (1 - self.config.grid_range * self.tp_multiplier())
-                    end_price = mid_price * (1 + self.config.grid_range * self.sl_multiplier())
+                    start_price = mid_price * (1 - grid_range * self.tp_multiplier())
+                    end_price = mid_price * (1 + grid_range * self.sl_multiplier())
                     grid_action = self.create_grid_executor(
                         trading_pair=trading_pair,
                         side=TradeType.SELL,
@@ -318,7 +344,64 @@ class QuantumGridAllocator(ControllerBase):
                     )
                     if grid_action is not None:
                         actions.append(grid_action)
-
+            else:
+                # we create a buy and a sell grid with higher range pct and the base grid value pct
+                # to hedge the position
+                grid_value = theoretical * grid_value_pct
+                if difference < Decimal("0"):  # create a bigger buy grid and sell grid
+                    # Create buy grid
+                    start_price = mid_price * (1 - 2 * grid_range * self.sl_multiplier())
+                    end_price = mid_price * (1 + grid_range * self.tp_multiplier())
+                    buy_grid_action = self.create_grid_executor(
+                        trading_pair=trading_pair,
+                        side=TradeType.BUY,
+                        start_price=start_price,
+                        end_price=end_price,
+                        grid_value=grid_value,
+                        is_unfavorable=False
+                    )
+                    if buy_grid_action is not None:
+                        actions.append(buy_grid_action)
+                    # Create sell grid
+                    start_price = mid_price * (1 - grid_range * self.tp_multiplier())
+                    end_price = mid_price * (1 + 2 * grid_range * self.sl_multiplier())
+                    sell_grid_action = self.create_grid_executor(
+                        trading_pair=trading_pair,
+                        side=TradeType.SELL,
+                        start_price=start_price,
+                        end_price=end_price,
+                        grid_value=grid_value,
+                        is_unfavorable=False
+                    )
+                    if sell_grid_action is not None:
+                        actions.append(sell_grid_action)
+                if difference > Decimal("0"):
+                    # Create sell grid
+                    start_price = mid_price * (1 - 2 * grid_range * self.tp_multiplier())
+                    end_price = mid_price * (1 + grid_range * self.sl_multiplier())
+                    sell_grid_action = self.create_grid_executor(
+                        trading_pair=trading_pair,
+                        side=TradeType.SELL,
+                        start_price=start_price,
+                        end_price=end_price,
+                        grid_value=grid_value,
+                        is_unfavorable=False
+                    )
+                    if sell_grid_action is not None:
+                        actions.append(sell_grid_action)
+                    # Create buy grid
+                    start_price = mid_price * (1 - grid_range * self.sl_multiplier())
+                    end_price = mid_price * (1 + 2 * grid_range * self.tp_multiplier())
+                    buy_grid_action = self.create_grid_executor(
+                        trading_pair=trading_pair,
+                        side=TradeType.BUY,
+                        start_price=start_price,
+                        end_price=end_price,
+                        grid_value=grid_value,
+                        is_unfavorable=False
+                    )
+                    if buy_grid_action is not None:
+                        actions.append(buy_grid_action)
         return actions
 
     def create_grid_executor(
