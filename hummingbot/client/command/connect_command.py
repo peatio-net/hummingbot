@@ -1,5 +1,6 @@
 import asyncio
 from typing import TYPE_CHECKING, Dict, Optional
+from hummingbot.connector.exchange.peatio.config import EXCHANGE_DOMAIN
 
 import pandas as pd
 
@@ -138,7 +139,7 @@ class ConnectCommand:
         Security.update_secure_config(connector_config)
         err_msg = await self.validate_n_connect_connector(connector_name)
         if err_msg is None:
-            self.notify(f"\nYou are now connected to {connector_name}.")
+            self.notify(f"\nYou are now connected to {connector_name} on {EXCHANGE_DOMAIN}.")
             safe_ensure_future(TradingPairFetcher.get_instance(client_config_map=ClientConfigAdapter).fetch_all(client_config_map=ClientConfigAdapter))
         else:
             self.notify(f"\nError: {err_msg}")
